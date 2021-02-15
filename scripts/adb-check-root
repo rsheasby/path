@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+USER=$(echo '
+su
+whoami' | adb shell)
+
+if [ "$USER" == "root" ]
+then
+  echo 'adb-check-root: ADB shell has root.';
+  exit 0
+fi
+
+echo 'adb-check-root: ADB shell does not have root.'
+exit 1
