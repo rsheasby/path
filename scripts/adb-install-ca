@@ -1,14 +1,15 @@
 #!/bin/bash
 
 CMD="$0"
+CMD_NAME="$(basename $CMD)"
 CAFILE="$1"
 WORKING_DIR='/data/local/tmp/cacerts'
 CAFILE_TYPE="AUTO"
 
 echo_help() {
-  echo "$CMD: Install non-persistent root CA to Android device using tmpfs (including Android 10+)
+  echo "$CMD_NAME: Install non-persistent root CA to Android device using tmpfs (including Android 10+)
 
-Usage: $CMD [OPTIONS] <CAFILE>
+Usage: $CMD_NAME [OPTIONS] <CAFILE>
 By default the certificate type is inferred from the CAFILE extension.
 
 Options:
@@ -30,7 +31,7 @@ then
   echo_help
 fi
 
-OPTIONS=$(getopt -n "$(basename $CMD)" -o hd: -l DER,PEM,help -- "$@")
+OPTIONS=$(getopt -n "$CMD_NAME" -o hd: -l DER,PEM,help -- "$@")
 if [ $? -ne 0 ]
 then
   exit 1
@@ -67,13 +68,13 @@ done
 
 if [ -z "$(command -v adb)" ]
 then
-  echo "ADB not installed."
+  echo "$CMD_NAME: ADB not installed."
   exit 1
 fi
 
 if [ -z "$(command -v openssl)" ]
 then
-  echo "OpenSSL not installed."
+  echo "$CMD_NAME: OpenSSL not installed."
   exit 1
 fi
 
@@ -81,7 +82,7 @@ fi
 
 if ! adb-check-root > /dev/null
 then
-  echo "Unable to get root in ADB."
+  echo "$CMD_NAME: Unable to get root in ADB."
   exit 1
 fi
 
@@ -89,7 +90,7 @@ fi
 
 if [ -n "$(echo "[ -d \"$WORKING_DIR\" ] && echo \"Directory exists\"" | adb shell)" ]
 then
-  echo "Working directory \"$WORKING_DIR\" already exists on the device. Delete the directory first, or specify another directory using \"-d\"."
+  echo "$CMD_NAME: Working directory \"$WORKING_DIR\" already exists on the device. Delete the directory first, or specify another directory using \"-d\"."
   exit 1
 fi
 
@@ -97,7 +98,7 @@ fi
 
 if [ ! -f "$CAFILE" ]
 then
-  echo "Unable to open file \"$CAFILE\"."
+  echo "$CMD_NAME: Unable to open file \"$CAFILE\"."
   exit 1
 fi
 
@@ -119,7 +120,7 @@ fi
 
 if [ "$CAFILE_TYPE" == "AUTO" ]
 then
-  echo "Couldn't infer certificate type. Please ensure the file is correctly named, or specify the certificate type manually."
+  echo "$CMD_NAME: Couldn't infer certificate type. Please ensure the file is correctly named, or specify the certificate type manually."
 fi
 
 # Re-export file to ensure it's in the correct format
@@ -136,7 +137,7 @@ fi
 
 if [ -z "$PEMCERT" ]
 then
-  echo "ERROR: Failed to convert certificate for Android. Ensure that the certificate is a valid $CAFILE_TYPE certificate."
+  echo "$CMD_NAME: Failed to convert certificate for Android. Ensure that the certificate is a valid $CAFILE_TYPE certificate."
   exit 1
 fi
 
@@ -173,4 +174,4 @@ echo "
 rm -rf $WORKING_DIR
 " | adb shell
 
-echo "Certificate successfully installed."
+echo "$CMD_NAME: Certificate successfully installed."
