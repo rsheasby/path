@@ -12,10 +12,14 @@ Usage: $CMD [OPTIONS] <CAFILE>
 By default the certificate type is inferred from the CAFILE extension.
 
 Options:
-  -h, --help  Show this help page
-  -d          Specify temp directory to use on Android device - default is \"$WORKING_DIR\"
-      --DER   Specify \"DER\" certificate type
-      --PEM   Specify \"PEM\" certificate type"
+  -h, --help
+    Show this help page
+  -d <DIR>
+    Specify temp directory to use on Android device - default is \"$WORKING_DIR\"
+  --DER
+    Specify \"DER\" certificate type
+  --PEM
+    Specify \"PEM\" certificate type"
   exit 1
 }
 
