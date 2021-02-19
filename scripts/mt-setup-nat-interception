@@ -1,0 +1,170 @@
+#!/bin/bash
+
+CMD="$0"
+CMD_NAME="$(basename $CMD)"
+
+RULE_COMMENT="rsheasby/path: mt-setup-nat-interception auto generated rule"
+
+FORCE=""
+ROUTER="192.168.88.1"
+SSH_PORT="22"
+SSH_USER="admin"
+SRC_IP=""
+SRC_PORTS="80,443"
+DST_IP=""
+DST_PORT="8080"
+
+echo_help() {
+  echo "$CMD_NAME: Setup NAT interception rules on a MikroTik router for transparent proxying
+
+Usage: $CMD_NAME [OPTIONS]
+The --src-ip and --dst-ip options are required.
+WARNING: Use at own risk. This script has been tested on MikroTik RouterOS 6.48.1 - there's no guarantee it'll work on an older version.
+
+Options:
+  -h, --help
+    Show this help page
+  -f, --force
+    Force creation of rules, deleting existing rules created by this script beforehand
+  -r, --router <HOST>
+    MikroTik router to modify - defaults to 192.168.88.1
+  -p, --ssh-port <PORT>
+    SSH port for MikroTik router - defaults to 22
+  -u, --ssh-user <USERNAME>
+    SSH user for MikroTik router - defaults to \"admin\"
+  -s, --src-ip <IP ADDRESS>
+    IP address whose traffic should be intercepted
+  -S, --src-ports <COMMA SEPARATED PORTS>
+    Ports to intercept traffic from - defaults to 80,443
+  -d, --dst-ip <IP ADDRESS>
+    IP address where the intercepted traffic should be redirected to
+  -D, --dst-port <PORT>
+    Port to forward the intercepted traffic to - defaults to 8080"
+  exit 1
+}
+
+# Parse args
+
+if [ -z $1 ]
+then
+  echo_help
+fi
+
+OPTIONS=$(getopt -n "$CMD_NAME" -o hfr:p:s:S:d:D: -l help,force,router:,ssh-port:,src-ip:,src-port:,dst-ip:,dst-port: -- "$@")
+if [ $? -ne 0 ]
+then
+  exit 1
+fi
+
+eval set -- "$OPTIONS"
+while true; do
+  case "$1" in
+  -h)
+    ;&
+  --help)
+    echo_help
+    ;;
+  -f)
+    ;&
+  --force)
+    FORCE="true"
+    ;;
+  -r)
+    ;&
+  --router)
+    shift
+    ROUTER="$1"
+    ;;
+  -p)
+    ;&
+  --ssh-port)
+    shift
+    SSH_PORT="$1"
+    ;;
+  -u)
+    ;&
+  --ssh-user)
+    shift
+    SSH_USER="$1"
+    ;;
+  -s)
+    ;&
+  --src-ip)
+    shift
+    SRC_IP="$1"
+    ;;
+  -S)
+    ;&
+  --src-ports)
+    shift
+    SRC_PORTS="$1"
+    ;;
+  -d)
+    ;&
+  --dst-ip)
+    shift
+    DST_IP="$1"
+    ;;
+  -D)
+    ;&
+  --dst-port)
+    shift
+    DST_PORT="$1"
+    ;;
+  --)
+    shift
+    if [ "$#" -ne 0 ]
+    then
+      echo "$CMD_NAME: Extraneous argument[s] provided: $*"
+      exit 1
+    fi
+    break
+    ;;
+  esac
+  shift
+done
+
+# Validate required args
+
+if [ -z "$SRC_IP" ]
+then
+  echo "$CMD_NAME: Source IP not provided."
+  exit 1
+fi
+
+if [ -z "$DST_IP" ]
+then
+  echo "$CMD_NAME: Destination IP not provided."
+  exit 1
+fi
+
+MIKROTIK_SCRIPT="
+{
+  :local createRules;
+  :set createRules true;
+  :if ([:len [/ip firewall nat find where comment=\"$RULE_COMMENT\"]] != 0) do={
+    :put \"$CMD_NAME: Found existing rules created by this script:\";
+    /ip firewall nat print where comment=\"$RULE_COMMENT\";
+    :if (\"$FORCE\" != \"true\") do={
+      :put \"$CMD_NAME: Refusing to overwrite existing rules, since \\\"force\\\" parameter was not provided.\";
+      :set createRules false;
+    } else={
+      :put \"$CMD_NAME: Deleting existing rules.\";
+      /ip firewall nat remove [/ip firewall nat find where comment=\"$RULE_COMMENT\"];
+    }
+  };
+  :if (\$createRules = true) do={
+    :put \"$CMD_NAME: Creating rules.\";
+    /ip firewall nat add chain=dstnat src-address=$SRC_IP protocol=tcp dst-port=$SRC_PORTS action=dst-nat to-addresses=$DST_IP to-ports=$DST_PORT comment=\"$RULE_COMMENT\";
+    /ip firewall nat add chain=srcnat src-address=$SRC_IP dst-address=$DST_IP protocol=tcp dst-port=$DST_PORT action=masquerade comment=\"$RULE_COMMENT\";
+  };
+  :put \"$CMD_NAME: Done!\";
+}
+"
+
+MIKROTIK_SCRIPT=$(echo $MIKROTIK_SCRIPT | tr -d '\n')
+
+#echo "$MIKROTIK_SCRIPT"
+
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@$ROUTER" -p "$SSH_PORT" "$MIKROTIK_SCRIPT"
+
