@@ -43,6 +43,14 @@ Options:
   exit 1
 }
 
+# Check dependencies
+
+if [ -z "$(command -v ssh)" ]
+then
+  echo "$CMD_NAME: SSH not installed."
+  exit 1
+fi
+
 # Parse args
 
 if [ -z $1 ]

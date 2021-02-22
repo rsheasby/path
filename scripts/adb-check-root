@@ -2,6 +2,16 @@
 
 set -e
 
+# Check dependencies
+
+if [ -z "$(command -v adb)" ]
+then
+  echo "$CMD_NAME: ADB not installed."
+  exit 1
+fi
+
+# Check root
+
 USER=$(echo '
 su
 whoami' | adb shell)
