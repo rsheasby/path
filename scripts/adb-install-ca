@@ -138,6 +138,7 @@ fi
 if [ "$CAFILE_TYPE" == "AUTO" ]
 then
   echo "$CMD_NAME: Couldn't infer certificate type. Please ensure the file is correctly named, or specify the certificate type manually."
+  exit 1
 fi
 
 # Re-export file to ensure it's in the correct format
