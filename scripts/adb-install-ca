@@ -3,7 +3,8 @@
 CMD="$0"
 CMD_NAME="$(basename $CMD)"
 CAFILE="$1"
-WORKING_DIR='/data/local/tmp/cacerts'
+WORKING_DIR="/data/local/tmp/cacerts"
+FORCE=""
 CAFILE_TYPE="AUTO"
 
 echo_help() {
@@ -17,6 +18,8 @@ Options:
     Show this help page
   -d <DIR>
     Specify temp directory to use on Android device - default is \"$WORKING_DIR\"
+  -f
+    Force overwriting of working directory if it already exists
   --DER
     Specify \"DER\" certificate type
   --PEM
@@ -31,7 +34,7 @@ then
   echo_help
 fi
 
-OPTIONS=$(getopt -n "$CMD_NAME" -o hd: -l DER,PEM,help -- "$@")
+OPTIONS=$(getopt -n "$CMD_NAME" -o hd:f -l DER,PEM,help -- "$@")
 if [ $? -ne 0 ]
 then
   exit 1
@@ -48,6 +51,9 @@ while true; do
   -d)
     shift
     WORKING_DIR="$1"
+    ;;
+  -f)
+    FORCE="true"
     ;;
   --DER)
     CAFILE_TYPE="DER"
@@ -86,11 +92,22 @@ then
   exit 1
 fi
 
+# Delete working directory if force option is enabled
+
+if [ -n "$FORCE" ]
+then
+  echo "$CMD_NAME: Working directory \"$WORKING_DIR\" already exists on the device. Deleting it..."
+  echo "
+    su
+    rm -rf $WORKING_DIR
+  " | adb shell
+fi
+
 # Check if working directory already exists on device
 
 if [ -n "$(echo "[ -d \"$WORKING_DIR\" ] && echo \"Directory exists\"" | adb shell)" ]
 then
-  echo "$CMD_NAME: Working directory \"$WORKING_DIR\" already exists on the device. Delete the directory first, or specify another directory using \"-d\"."
+  echo "$CMD_NAME: Working directory \"$WORKING_DIR\" already exists on the device. You can overwrite it using the \"-f\" option, or specify another directory using \"-d\"."
   exit 1
 fi
 
@@ -146,7 +163,7 @@ fi
 HASHFILENAME="$(echo "$PEMCERT" | openssl x509 -inform PEM --subject_hash_old | head -n 1)"
 
 echo "
-mkdir $WORKING_DIR
+  mkdir $WORKING_DIR
 " | adb shell
 
 # Push cert file
@@ -155,23 +172,23 @@ adb push $CAFILE $WORKING_DIR/$HASHFILENAME.0
 
 # Create tmpfs filesystem
 echo "
-su
-cp /system/etc/security/cacerts/* $WORKING_DIR
-mount -t tmpfs tmpfs /system/etc/security/cacerts/
-cp $WORKING_DIR/* /system/etc/security/cacerts/
+  su
+  cp /system/etc/security/cacerts/* $WORKING_DIR
+  mount -t tmpfs tmpfs /system/etc/security/cacerts/
+  cp $WORKING_DIR/* /system/etc/security/cacerts/
 " | adb shell
 
 # Fix permissions
 echo "
-su
-chown root:root /system/etc/security/cacerts/*
-chmod 644 /system/etc/security/cacerts/*
-chcon u:object_r:system_file:s0 /system/etc/security/cacerts/*
+  su
+  chown root:root /system/etc/security/cacerts/*
+  chmod 644 /system/etc/security/cacerts/*
+  chcon u:object_r:system_file:s0 /system/etc/security/cacerts/*
 " | adb shell
 
 # Clean up working directory
 echo "
-rm -rf $WORKING_DIR
+  rm -rf $WORKING_DIR
 " | adb shell
 
 echo "$CMD_NAME: Certificate successfully installed."
