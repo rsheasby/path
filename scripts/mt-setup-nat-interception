@@ -6,6 +6,7 @@ CMD_NAME="$(basename $CMD)"
 RULE_COMMENT="rsheasby/path: mt-setup-nat-interception auto generated rule"
 
 FORCE=""
+APPEND=""
 ROUTER="192.168.88.1"
 SSH_PORT="22"
 SSH_USER="admin"
@@ -26,6 +27,8 @@ Options:
     Show this help page
   -f, --force
     Force creation of rules, deleting existing rules created by this script beforehand
+  -a, --append
+    Ignore existing rules, and just append the new rules to them
   -r, --router <HOST>
     MikroTik router to modify - defaults to 192.168.88.1
   -p, --ssh-port <PORT>
@@ -58,7 +61,7 @@ then
   echo_help
 fi
 
-OPTIONS=$(getopt -n "$CMD_NAME" -o hfr:p:s:S:d:D: -l help,force,router:,ssh-port:,src-ip:,src-port:,dst-ip:,dst-port: -- "$@")
+OPTIONS=$(getopt -n "$CMD_NAME" -o hfar:p:s:S:d:D: -l help,force,append,router:,ssh-port:,src-ip:,src-port:,dst-ip:,dst-port: -- "$@")
 if [ $? -ne 0 ]
 then
   exit 1
@@ -76,6 +79,11 @@ while true; do
     ;&
   --force)
     FORCE="true"
+    ;;
+  -a)
+    ;&
+  --append)
+    APPEND="true"
     ;;
   -r)
     ;&
@@ -150,16 +158,18 @@ MIKROTIK_SCRIPT="
 {
   :local createRules;
   :set createRules true;
-  :if ([:len [/ip firewall nat find where comment=\"$RULE_COMMENT\"]] != 0) do={
-    :put \"$CMD_NAME: Found existing rules created by this script:\";
-    /ip firewall nat print where comment=\"$RULE_COMMENT\";
-    :if (\"$FORCE\" != \"true\") do={
-      :put \"$CMD_NAME: Refusing to overwrite existing rules, since \\\"force\\\" parameter was not provided.\";
-      :set createRules false;
-    } else={
-      :put \"$CMD_NAME: Deleting existing rules.\";
-      /ip firewall nat remove [/ip firewall nat find where comment=\"$RULE_COMMENT\"];
-    }
+  :if (\"$APPEND\" != \"true\") do={
+    :if ([:len [/ip firewall nat find where comment=\"$RULE_COMMENT\"]] != 0) do={
+      :put \"$CMD_NAME: Found existing rules created by this script:\";
+      /ip firewall nat print where comment=\"$RULE_COMMENT\";
+      :if (\"$FORCE\" != \"true\") do={
+        :put \"$CMD_NAME: Refusing to overwrite existing rules, since \\\"force\\\" parameter was not provided.\";
+        :set createRules false;
+      } else={
+        :put \"$CMD_NAME: Deleting existing rules.\";
+        /ip firewall nat remove [/ip firewall nat find where comment=\"$RULE_COMMENT\"];
+      }
+    };
   };
   :if (\$createRules = true) do={
     :put \"$CMD_NAME: Creating rules.\";
