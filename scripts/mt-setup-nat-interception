@@ -20,7 +20,7 @@ echo_help() {
 
 Usage: $CMD_NAME [OPTIONS]
 The --src-ip and --dst-ip options are required.
-WARNING: Use at own risk. This script has been tested on MikroTik RouterOS 6.48.1 - there's no guarantee it'll work on an older version.
+WARNING: Use at own risk. This script has been tested on MikroTik RouterOS 6.47.9 - there's no guarantee it'll work on an older version.
 
 Options:
   -h, --help
